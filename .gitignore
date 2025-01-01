@@ -1,3 +1,7 @@
 /config.py
 /__pycache__
 /database/user.db
+/database/__pycache__
+/handlers/__pycache__
+/keyboards/__pycache__
+/other/__pycache__
