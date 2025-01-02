@@ -43,13 +43,10 @@ async def admin_handler(message: types.Message, state: FSMContext):
 async def statistics_handler(callback: types.CallbackQuery):
 
     users_count = await DataBase.get_users_count()
-
-    verified_count = await DataBase.get_verified_users_count()
-    
+        
     statistics_message = (
         f"<b>Статистика бота:</b>\n"
         f"🔹 <b>Общее количество пользователей:</b> <code>{users_count}</code>\n"
-        f"🔹 <b>Количество пользователей прошедших верификацию:</b> <code>{verified_count}</code>"
     )
     await callback.message.answer(statistics_message, parse_mode="HTML")
     await callback.answer()

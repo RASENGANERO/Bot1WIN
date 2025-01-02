@@ -11,8 +11,14 @@ from aiogram.types import CallbackQuery, Message
 #from config import VERIF_CHANNEL_ID
 from database.db import DataBase
 from keyboards.client import ClientKeyboard
-from other.filters import ChatJoinFilter, RegisteredFilter
+from other.filters import RegisteredFilter
 from other.languages import languages
+class DummyUser:
+    def __init__(self, user_id):
+        self.id = user_id
+class DummyCallback:
+    def __init__(self, user_id):
+        self.from_user = DummyUser(user_id)
 
 router = Router()
 
@@ -33,18 +39,20 @@ class ChangeReferral(StatesGroup):
 @router.message(CommandStart())
 async def start_command(message: types.Message, user_id: int = 0):
     await message.delete()
-    user = await DataBase.get_user_info(message.from_user.id if user_id == 0 else user_id)
-    if user is None:
+    lang = await DataBase.get_lang(user_id)
+    if lang is None:
         await get_language(message, True)
         return
-    await message.answer(languages[user[2]]["welcome"].format(first_name=message.from_user.first_name),
-                         reply_markup=await ClientKeyboard.start_keyboard(user[2]), parse_mode="HTML")
+    else:
+        await message.answer(languages[lang]["welcome"].format(first_name=message.from_user.first_name),
+                         reply_markup=await ClientKeyboard.start_keyboard(lang), parse_mode="HTML")
 
 
 @router.callback_query(F.data.startswith("sel_lang"))
 async def select_language(callback: CallbackQuery):
     data = callback.data.split("|")
-    await DataBase.register(callback.from_user.id, data[2])
+    
+    await DataBase.register_lang(callback.from_user.id, data[2])
     await start_command(message=callback.message, user_id=int(data[1]))
 
 
@@ -73,28 +81,22 @@ async def get_language(query: Message, first: bool = False):
                        reply_markup=await ClientKeyboard.languages_board(prefix))
 
 
-@router.callback_query(F.data.in_(["back", "check"]), ChatJoinFilter())
+@router.callback_query(F.data.in_(["back", "check"]))
 async def menu_output(callback: types.CallbackQuery):
     try:
         await callback.message.delete()
     except:
         pass
-
     user_info = await DataBase.get_user_info(callback.from_user.id)
     lang = await DataBase.get_lang(callback.from_user.id)
-
     text = languages[lang]["register_info"]
-
     if lang == "ru":
         photo = types.FSInputFile("hello.jpg")
     else:
         photo = types.FSInputFile("hel.jpg")  
-
-
     await callback.message.answer_photo(photo, caption=languages[lang]["welcome_message"],
                                         parse_mode="HTML",
                                         reply_markup=await ClientKeyboard.menu_keyboard(user_info, lang))
-
     await callback.answer()
 
 
@@ -104,37 +106,49 @@ async def menu_output(callback: types.CallbackQuery):
 @router.callback_query(F.data == "register")
 async def register_handler(callback: types.CallbackQuery, state: FSMContext):
     lang = await DataBase.get_lang(callback.from_user.id)
-    
+    text = languages[lang]["register_info"]
+    try:
+        await callback.message.delete()
+    except:
+        pass
 
-    is_verified = await DataBase.get_verified_status(callback.from_user.id)
+    photo = types.FSInputFile("reger.png")
+    await callback.message.answer_photo(
+             photo=photo,
+             caption=text,
+             parse_mode="HTML",
+             reply_markup=await ClientKeyboard.register_keyboard(callback, lang)
+         )
+    await state.set_state(RegisterState.input_id)
 
-
-    if is_verified == "verifed":
-
+@router.message(RegisterState.input_id)
+async def mailing_state(message: types.Message, state: FSMContext, bot: Bot):
+    lang = await DataBase.get_lang(message.chat.id)
+    if str(message.text).isnumeric()==True:
+        text_capt = ''
+        acc_id = message.text
+        checked = await DataBase.check_register(message.chat.id)
+        if checked == 0:
+            await DataBase.register(message.chat.id,acc_id)
+            text_capt = languages[lang]["success_registration"]
+        else:
+            text_capt = languages[lang]["check_register"]
+        
         photo = types.FSInputFile("dep.png")
-        await callback.message.bot.send_photo(
-            chat_id=callback.from_user.id,
+        dummy_callback = DummyCallback(message.chat.id)
+        await message.bot.send_photo(
+            chat_id=message.chat.id,
             photo=photo,
-            caption=languages[lang]["success_registration"],
+            caption=text_capt,
             parse_mode="HTML",
-            reply_markup=await ClientKeyboard.dep_keyboard(callback, lang)
+            reply_markup=await ClientKeyboard.dep_keyboard(dummy_callback, lang)
         )
     else:
-        text = languages[lang]["register_info"]
-        try:
-            await callback.message.delete()
-        except:
-            pass
+        await message.answer(languages["ru"]["welcome"].format(first_name=message.from_user.first_name),
+                         reply_markup=await ClientKeyboard.start_keyboard(lang), parse_mode="HTML")
 
-        photo = types.FSInputFile("reger.png")
-        await callback.message.answer_photo(
-            photo=photo,
-            caption=text,
-            parse_mode="HTML",
-            reply_markup=await ClientKeyboard.register_keyboard(callback, lang)
-        )
-        await state.set_state(RegisterState.input_id)
-
+    
+    await state.clear()
 
 
 @router.callback_query(F.data == "instruction")
@@ -172,7 +186,7 @@ async def channel_verification_handler(message: types.Message):
                 return
 
             deposit_status = await DataBase.get_deposit_status(user_id)
-            if deposit_status == 'dep':
+            if deposit_status == '0':
                 await message.reply(f"❌ У пользователя {user_id} уже есть активный депозит")
                 return
 
@@ -195,13 +209,7 @@ async def channel_verification_handler(message: types.Message):
                 user_id = int(message.text)
                 lang = await DataBase.get_lang(user_id)
 
-                await DataBase.update_verifed(message.text)
-                class DummyUser:
-                    def __init__(self, user_id):
-                        self.id = user_id
-                class DummyCallback:
-                    def __init__(self, user_id):
-                        self.from_user = DummyUser(user_id)
+                
 
                 dummy_callback = DummyCallback(user_id)
                 photo = types.FSInputFile("dep.png")

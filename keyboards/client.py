@@ -10,9 +10,9 @@ class ClientKeyboard:
     @staticmethod
     async def start_keyboard(lang: str):
         ikb = InlineKeyboardBuilder()
-        ikb.button(text=languages[lang]["instruction"], callback_data="instruction")
-        ikb.button(text=languages[lang]["register"], callback_data="register")
-        #ikb.adjust(1)
+        ikb.button(text=languages[lang]["instruction"], callback_data="instruction"),
+        ikb.button(text=languages[lang]["register"], callback_data="register"),
+        ikb.button(text=languages[lang]["choose_lang"], callback_data="get_lang")
         return ikb.as_markup()
 
     @staticmethod
@@ -20,14 +20,6 @@ class ClientKeyboard:
         ikb = InlineKeyboardBuilder()
         ikb.button(text="🇷🇺 Русский", callback_data=f"{data}|ru")
         ikb.button(text="🇬🇧 English", callback_data=f"{data}|en")
-        ikb.button(text="🇮🇳 हिन्दी", callback_data=f"{data}|hi")
-        ikb.button(text="🇧🇷 Brazilian", callback_data=f"{data}|br")
-        ikb.button(text="🇪🇸 Español", callback_data=f"{data}|es")
-        ikb.button(text="🇺🇿 O'zbek", callback_data=f"{data}|uz")
-        ikb.button(text="🇦🇿 Azərbaycan", callback_data=f"{data}|az")
-        ikb.button(text="🇹🇷 Türkçe", callback_data=f"{data}|tr")
-        ikb.button(text="🇵🇹 Português", callback_data=f"{data}|pt")
-        ikb.button(text="🇸🇦 العربية", callback_data=f"{data}|ar")
         ikb.adjust(2)
         return ikb.as_markup()
 
