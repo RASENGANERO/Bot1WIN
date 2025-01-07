@@ -1,17 +1,17 @@
 import asyncio
 import datetime
 from random import uniform, randint
+#from main import bot, appFlask
 
 from aiogram import F, Router, types, Bot
 from aiogram.filters.command import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
+from pprint import pprint
 
-#from config import VERIF_CHANNEL_ID
 from database.db import DataBase
 from keyboards.client import ClientKeyboard
-from other.filters import RegisteredFilter
 from other.languages import languages
 class DummyUser:
     def __init__(self, user_id):
@@ -22,11 +22,8 @@ class DummyCallback:
 
 router = Router()
 
-
 class RegisterState(StatesGroup):
     input_id = State()
-
-
 
 class GetSignalStates(StatesGroup):
     chosing_mines = State()
@@ -35,32 +32,33 @@ class GetSignalStates(StatesGroup):
 class ChangeReferral(StatesGroup):
     input_ref = State()
 
-
 @router.message(CommandStart())
-async def start_command(message: types.Message, user_id: int = 0):
+async def start_command(message: types.Message):
     await message.delete()
-    lang = await DataBase.get_lang(user_id)
+    lang = await DataBase.get_lang(message.chat.id)
     if lang is None:
         await get_language(message, True)
         return
     else:
         await message.answer(languages[lang]["welcome"].format(first_name=message.from_user.first_name),
-                         reply_markup=await ClientKeyboard.start_keyboard(lang), parse_mode="HTML")
+                         reply_markup=await ClientKeyboard.start_keyboard(lang, message.chat.id), parse_mode="HTML")
+
+
+
 
 
 @router.callback_query(F.data.startswith("sel_lang"))
 async def select_language(callback: CallbackQuery):
     data = callback.data.split("|")
-    
     await DataBase.register_lang(callback.from_user.id, data[2])
-    await start_command(message=callback.message, user_id=int(data[1]))
+    await start_command(message=callback.message)
 
 
 @router.callback_query(F.data.startswith("resel_lang"))
 async def select_language(callback: CallbackQuery):
     data = callback.data.split("|")
     await DataBase.update_lang(int(data[1]), data[2])
-    await start_command(message=callback.message, user_id=int(data[1]))
+    await start_command(message=callback.message)
 
 
 @router.callback_query(F.data == "get_lang")
@@ -153,8 +151,7 @@ async def mailing_state(message: types.Message, state: FSMContext, bot: Bot):
 
 @router.callback_query(F.data == "instruction")
 async def instruction_handler(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    new_ref_url = f"{(await DataBase.get_ref())}&sub1={user_id}"
+    new_ref_url = await DataBase.get_ref()
     lang = await DataBase.get_lang(callback.from_user.id)
     text = languages[lang]["instruction_info"].format(ref_url=new_ref_url)
 
@@ -169,60 +166,6 @@ async def instruction_handler(callback: types.CallbackQuery):
 
 
 
-@router.message(F.chat.func(lambda chat: chat.id == 1))
-async def channel_verification_handler(message: types.Message):
-    try:
-        if '|' in message.text and 'Firstdep' in message.text:
-            parts = message.text.split('|')
-            if len(parts) != 3 or parts[1] != 'Firstdep':
-                return
-
-            user_id = int(parts[0].strip())
-            amount = float(parts[2].strip())
-
-            user_info = await DataBase.get_user_info(user_id)
-            if user_info is None:
-                await message.reply(f"❌ Пользователь {user_id} не найден в базе")
-                return
-
-            deposit_status = await DataBase.get_deposit_status(user_id)
-            if deposit_status == '0':
-                await message.reply(f"❌ У пользователя {user_id} уже есть активный депозит")
-                return
-
-            lang = await DataBase.get_lang(user_id)
-
-            await DataBase.update_deposit_status(user_id, "dep")
-            await message.bot.send_message(
-                chat_id=user_id,
-                text=languages[lang]["deposit_verified"].format(amount=amount),
-                reply_markup=await ClientKeyboard.get_signal_keyboard(lang),
-                parse_mode="HTML"
-            )
-
-            await message.reply(
-                f"✅ Депозит подтвержден для пользователя {user_id}\n"
-                f"Сумма: {amount}"
-            )
-        else:
-            if (await DataBase.get_user(message.text)) is None:
-                user_id = int(message.text)
-                lang = await DataBase.get_lang(user_id)
-
-                
-
-                dummy_callback = DummyCallback(user_id)
-                photo = types.FSInputFile("dep.png")
-                await message.bot.send_photo(
-                    chat_id=user_id,
-                    photo=photo,
-                    caption=languages[lang]["success_registration"],
-                    parse_mode="HTML",
-                    reply_markup=await ClientKeyboard.dep_keyboard(dummy_callback, lang)
-                )
-
-    except Exception as e:
-        await message.reply(f"❌ Ошибка обработки: {str(e)}")
 
 
 def deposit_required(func):

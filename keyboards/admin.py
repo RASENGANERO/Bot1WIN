@@ -5,6 +5,7 @@ async def admin_command():
     ikb.button(text="Рассылка 📩", callback_data="mailing")
     ikb.button(text="Смена реферальной ссылки 🔗", callback_data="change_ref")
     ikb.button(text="Статистика 📊", callback_data="stat")
+    ikb.button(text="Установить верификацию", callback_data="verificate")
     ikb.adjust(1, 1)
     return ikb.as_markup()
 

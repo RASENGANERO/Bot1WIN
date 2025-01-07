@@ -6,9 +6,7 @@ class DB:
         await self.con.execute(
             "CREATE TABLE IF NOT EXISTS users(verifed TEXT, user_id BIGINT PRIMARY KEY, lang TEXT, deposit TEXT DEFAULT 'nedep')"
         )
-        # Создаем таблицу desc с начальным значением google.com
         await self.con.execute("CREATE TABLE IF NOT EXISTS desc(ref TEXT)")
-        # Проверяем, есть ли уже запись, если нет - вставляем google.com
         check = await self.con.execute("SELECT ref FROM desc")
         if not await check.fetchone():
             await self.con.execute("INSERT INTO desc(ref) VALUES('google.com')")
@@ -42,8 +40,8 @@ class DB:
         return (await result.fetchone())[0]
 
 
-
-    async def check_register(self, user_id):
+    
+    async def check_register(self, user_id) -> int:
         query = "SELECT COUNT(*) FROM users WHERE user_id = '{0}'".format(user_id)
         result = await self.con.execute(query)
         return (await result.fetchone())[0]
